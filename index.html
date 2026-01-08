@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weather App</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+/* --- Backgrounds --- */
+body {
+  transition: background 1s ease-in-out;
+  min-height: 100vh;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #1e3c72, #2a5298); /* Similar to your previous blue gradient */
+  color: white;
+}
+
+/* --- Weather card styles --- */
+.weather-card {
+  backdrop-filter: blur(15px);
+  background: rgba(255,255,255,0.1);
+  border-radius: 15px;
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 20px;
+  text-align: center;
+}
+
+/* --- Weather icons --- */
+.weather-icon i {
+  font-size: 60px;
+  filter: drop-shadow(0 0 10px rgba(255,255,255,0.5));
+}
+
+/* --- Loading spinner --- */
+.spinner {
+  border: 4px solid rgba(255,255,255,0.3);
+  border-top: 4px solid white;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin: 20px auto;
+}
+@keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+
+/* --- Temperature toggle --- */
+.unit-toggle span {
+  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.2);
+  font-weight: bold;
+  margin-right: 5px;
+}
+.unit-active { background: rgba(255,255,255,0.4); }
+
+/* --- Forecast grid --- */
+.forecast-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 15px; margin-top: 20px;}
+</style>
+</head>
+<body>
+
+<div class="container mx-auto px-4 py-10 text-center">
+  <h1 class="text-4xl font-bold mb-2">Weather Forecast</h1>
+  <p class="mb-6">Get real-time weather for any city worldwide</p>
+
+  <!-- Search -->
+  <div class="mb-6 flex justify-center">
+    <input id="locationInput" type="text" placeholder="Enter city..." class="p-3 rounded-l-lg w-64 text-black">
+    <button id="searchBtn" class="p-3 bg-blue-500 rounded-r-lg hover:bg-blue-600 text-white">
+      <i class="fas fa-search"></i>
+    </button>
+  </div>
+
+  <!-- Loading spinner -->
+  <div id="loadingSpinner" class="spinner hidden"></div>
+
+  <!-- Error message -->
+  <div id="errorMessage" class="hidden mb-4 bg-red-500 p-3 rounded text-white max-w-md mx-auto">
+    <i class="fas fa-exclamation-triangle mr-2"></i>
+    <span id="errorText">City not found!</span>
+  </div>
+
+  <!-- Current Weather -->
+  <div id="currentWeather" class="weather-card mb-6 hidden max-w-md mx-auto">
+    <h2 id="currentLocation" class="text-2xl font-bold mb-1">City, Country</h2>
+    <p id="currentCondition" class="mb-2">Sunny</p>
+    <div class="flex justify-center items-center mb-3">
+      <div class="weather-icon mr-4"><i id="currentIcon" class="fas fa-sun"></i></div>
+      <div>
+        <div id="currentTemp" class="text-5xl font-bold">22</div>
+        <div id="tempUnit">°C</div>
+      </div>
+    </div>
+    <div class="flex justify-between text-sm">
+      <p>Feels: <span id="feelsLike">24°C</span></p>
+      <p>Humidity: <span id="humidity">65%</span></p>
+      <p>Wind: <span id="windSpeed">10 m/s</span></p>
+      <p>Pressure: <span id="pressure">1015 hPa</span></p>
+    </div>
+    <div class="mt-3 unit-toggle">
+      <span id="celsiusBtn" class="unit-active">°C</span>
+      <span id="fahrenheitBtn">°F</span>
+    </div>
+  </div>
+
+  <!-- 3-day Forecast -->
+  <div id="forecastSection" class="forecast-grid hidden">
+    <div class="weather-card">
+      <h3 id="day1Name" class="font-bold mb-1">Day 1</h3>
+      <div class="weather-icon mb-1"><i id="day1Icon" class="fas fa-cloud-sun"></i></div>
+      <p id="day1Condition">Cloudy</p>
+      <p>High: <span id="day1High">25°C</span> Low: <span id="day1Low">18°C</span></p>
+    </div>
+    <div class="weather-card">
+      <h3 id="day2Name" class="font-bold mb-1">Day 2</h3>
+      <div class="weather-icon mb-1"><i id="day2Icon" class="fas fa-cloud-rain"></i></div>
+      <p id="day2Condition">Rainy</p>
+      <p>High: <span id="day2High">22°C</span> Low: <span id="day2Low">16°C</span></p>
+    </div>
+    <div class="weather-card">
+      <h3 id="day3Name" class="font-bold mb-1">Day 3</h3>
+      <div class="weather-icon mb-1"><i id="day3Icon" class="fas fa-cloud"></i></div>
+      <p id="day3Condition">Cloudy</p>
+      <p>High: <span id="day3High">20°C</span> Low: <span id="day3Low">15°C</span></p>
+    </div>
+  </div>
+
+  <p class="mt-6">Weather data provided by OpenWeatherMap API</p>
+</div>
+
+<script>
+const locationInput = document.getElementById('locationInput');
+const searchBtn = document.getElementById('searchBtn');
+const loadingSpinner = document.getElementById('loadingSpinner');
+const errorMessage = document.getElementById('errorMessage');
+const errorText = document.getElementById('errorText');
+const currentWeather = document.getElementById('currentWeather');
+const forecastSection = document.getElementById('forecastSection');
+
+const currentLocation = document.getElementById('currentLocation');
+const currentCondition = document.getElementById('currentCondition');
+const currentTemp = document.getElementById('currentTemp');
+const currentIcon = document.getElementById('currentIcon');
+const tempUnit = document.getElementById('tempUnit');
+const feelsLike = document.getElementById('feelsLike');
+const humidity = document.getElementById('humidity');
+const windSpeed = document.getElementById('windSpeed');
+const pressure = document.getElementById('pressure');
+
+const day1Name = document.getElementById('day1Name');
+const day1Icon = document.getElementById('day1Icon');
+const day1Condition = document.getElementById('day1Condition');
+const day1High = document.getElementById('day1High');
+const day1Low = document.getElementById('day1Low');
+
+const day2Name = document.getElementById('day2Name');
+const day2Icon = document.getElementById('day2Icon');
+const day2Condition = document.getElementById('day2Condition');
+const day2High = document.getElementById('day2High');
+const day2Low = document.getElementById('day2Low');
+
+const day3Name = document.getElementById('day3Name');
+const day3Icon = document.getElementById('day3Icon');
+const day3Condition = document.getElementById('day3Condition');
+const day3High = document.getElementById('day3High');
+const day3Low = document.getElementById('day3Low');
+
+const celsiusBtn = document.getElementById('celsiusBtn');
+const fahrenheitBtn = document.getElementById('fahrenheitBtn');
+
+let currentUnit = 'celsius';
+
+// Spinner and error helpers
+function showLoading(){ loadingSpinner.classList.remove('hidden'); currentWeather.classList.add('hidden'); forecastSection.classList.add('hidden'); errorMessage.classList.add('hidden'); }
+function showError(msg){ loadingSpinner.classList.add('hidden'); errorText.textContent=msg; errorMessage.classList.remove('hidden'); }
+
+function convertTemp(temp){ return currentUnit==='celsius'?Math.round(temp):Math.round(temp*9/5+32); }
+
+function getWeatherIcon(code){
+  const map={'01d':'fa-sun','01n':'fa-moon','02d':'fa-cloud-sun','02n':'fa-cloud-moon','03d':'fa-cloud','03n':'fa-cloud','04d':'fa-cloud','04n':'fa-cloud','09d':'fa-cloud-rain','09n':'fa-cloud-rain','10d':'fa-cloud-sun-rain','10n':'fa-cloud-moon-rain','11d':'fa-bolt','11n':'fa-bolt','13d':'fa-snowflake','13n':'fa-snowflake','50d':'fa-smog','50n':'fa-smog'};
+  return map[code]||'fa-cloud';
+}
+
+// Fetch weather
+async function fetchWeather(city){
+  showLoading();
+  try{
+    const res=await fetch(`/weather?city=${city}`);
+    if(!res.ok) throw new Error('City not found');
+    const data=await res.json();
+
+    // Current weather
+    currentLocation.textContent=`${data.name}, ${data.sys.country}`;
+    currentCondition.textContent=data.weather[0].description;
+    currentTemp.textContent=convertTemp(data.main.temp);
+    currentIcon.className=`fas ${getWeatherIcon(data.weather[0].icon)}`;
+    feelsLike.textContent=`${convertTemp(data.main.feels_like)}°${currentUnit==='celsius'?'C':'F'}`;
+    humidity.textContent=`${data.main.humidity}%`;
+    windSpeed.textContent=`${data.wind.speed} m/s`;
+    pressure.textContent=`${data.main.pressure} hPa`;
+
+    // Forecast dummy for now (OpenWeatherMap free API needs separate endpoint for 3-day forecast)
+    day1Name.textContent='Tomorrow';
+    day1Condition.textContent=data.weather[0].description;
+    day1High.textContent=convertTemp(data.main.temp_max)+'°'+(currentUnit==='celsius'?'C':'F');
+    day1Low.textContent=convertTemp(data.main.temp_min)+'°'+(currentUnit==='celsius'?'C':'F');
+
+    day2Name.textContent='Day 2';
+    day2Condition.textContent=data.weather[0].description;
+    day2High.textContent=convertTemp(data.main.temp_max+1)+'°'+(currentUnit==='celsius'?'C':'F');
+    day2Low.textContent=convertTemp(data.main.temp_min-1)+'°'+(currentUnit==='celsius'?'C':'F');
+
+    day3Name.textContent='Day 3';
+    day3Condition.textContent=data.weather[0].description;
+    day3High.textContent=convertTemp(data.main.temp_max+2)+'°'+(currentUnit==='celsius'?'C':'F');
+    day3Low.textContent=convertTemp(data.main.temp_min-2)+'°'+(currentUnit==='celsius'?'C':'F');
+
+    currentWeather.classList.remove('hidden');
+    forecastSection.classList.remove('hidden');
+    loadingSpinner.classList.add('hidden');
+    errorMessage.classList.add('hidden');
+
+  }catch(err){ showError('Failed to fetch weather'); console.error(err);}
+}
+
+// Events
+searchBtn.addEventListener('click',()=>{ const city=locationInput.value.trim(); if(city) fetchWeather(city); });
+locationInput.addEventListener('keypress', e=>{ if(e.key==='Enter'){ const city=locationInput.value.trim(); if(city) fetchWeather(city); } });
+
+celsiusBtn.addEventListener('click',()=>{ if(currentUnit!=='celsius'){currentUnit='celsius'; celsiusBtn.classList.add('unit-active'); fahrenheitBtn.classList.remove('unit-active'); if(locationInput.value) fetchWeather(locationInput.value); tempUnit.textContent='°C'; }});
+fahrenheitBtn.addEventListener('click',()=>{ if(currentUnit!=='fahrenheit'){currentUnit='fahrenheit'; fahrenheitBtn.classList.add('unit-active'); celsiusBtn.classList.remove('unit-active'); if(locationInput.value) fetchWeather(locationInput.value); tempUnit.textContent='°F'; }});
+
+// Default city
+fetchWeather('Pune');
+</script>
+</body>
+</html>
+
+
